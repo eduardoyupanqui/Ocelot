@@ -10,11 +10,13 @@ namespace Ocelot.DependencyInjection
         {
             var configuration = services.BuildServiceProvider()
                 .GetRequiredService<IConfiguration>();
+            services.AddHttpClient();
             return new OcelotBuilder(services, configuration);
         }
 
         public static IOcelotBuilder AddOcelot(this IServiceCollection services, IConfiguration configuration)
         {
+            services.AddHttpClient();
             return new OcelotBuilder(services, configuration);
         }
     }

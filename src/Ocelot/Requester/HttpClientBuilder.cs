@@ -7,42 +7,37 @@
     using System.Net;
     using System.Net.Http;
 
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Http;
+    using Microsoft.Extensions.Options;
+
     public class HttpClientBuilder : IHttpClientBuilder
     {
         private readonly IDelegatingHandlerHandlerFactory _factory;
-        private readonly IHttpClientCache _cacheHandlers;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IOcelotLogger _logger;
         private DownstreamRoute _cacheKey;
         private HttpClient _httpClient;
-        private IHttpClient _client;
         private readonly TimeSpan _defaultTimeout;
 
         public HttpClientBuilder(
             IDelegatingHandlerHandlerFactory factory,
-            IHttpClientCache cacheHandlers,
+            IHttpClientFactory httpClientFactory,
             IOcelotLogger logger)
         {
             _factory = factory;
-            _cacheHandlers = cacheHandlers;
+            _httpClientFactory = httpClientFactory;
             _logger = logger;
 
             // This is hardcoded at the moment but can easily be added to configuration
             // if required by a user request.
             _defaultTimeout = TimeSpan.FromSeconds(90);
         }
+        public string Name { get; private set; } = Options.DefaultName;
+        public IServiceCollection Services { get; }
 
-        public IHttpClient Create(DownstreamRoute downstreamRoute)
+        public HttpClient Create(DownstreamRoute downstreamRoute)
         {
-            _cacheKey = downstreamRoute;
-
-            var httpClient = _cacheHandlers.Get(_cacheKey);
-
-            if (httpClient != null)
-            {
-                _client = httpClient;
-                return httpClient;
-            }
-
             var handler = CreateHandler(downstreamRoute);
 
             if (downstreamRoute.DangerousAcceptAnyServerCertificateValidator)
@@ -57,14 +52,29 @@
                 ? _defaultTimeout
                 : TimeSpan.FromMilliseconds(downstreamRoute.QosOptions.TimeoutValue);
 
-            _httpClient = new HttpClient(CreateHttpMessageHandler(handler, downstreamRoute))
+            if (!string.IsNullOrEmpty(downstreamRoute.Key))
             {
-                Timeout = timeout
-            };
+                Name = downstreamRoute.Key;
+            }
 
-            _client = new HttpClientWrapper(_httpClient);
+            if (!string.IsNullOrEmpty(downstreamRoute.ServiceName))
+            {
+                Name = downstreamRoute.ServiceName;
+            }
 
-            return _client;
+            //TODO: Definir donde se anexaran los handlers
+            //services.Configure<HttpClientFactoryOptions>(
+            //    Name,
+            //    options => options.HttpMessageHandlerBuilderActions.Add(builder =>
+            //    {
+            //        builder.PrimaryHandler = CreateHttpMessageHandler(handler, downstreamRoute);
+            //        builder.Build();
+            //    }));
+
+            _httpClient = _httpClientFactory.CreateClient(Name);
+            _httpClient.Timeout = timeout;
+
+            return _httpClient;
         }
 
         private HttpClientHandler CreateHandler(DownstreamRoute downstreamRoute)
@@ -97,11 +107,6 @@
                 MaxConnectionsPerServer = downstreamRoute.HttpHandlerOptions.MaxConnectionsPerServer,
                 CookieContainer = new CookieContainer(),
             };
-        }
-
-        public void Save()
-        {
-            _cacheHandlers.Set(_cacheKey, _client, TimeSpan.FromHours(24));
         }
 
         private HttpMessageHandler CreateHttpMessageHandler(HttpMessageHandler httpMessageHandler, DownstreamRoute request)

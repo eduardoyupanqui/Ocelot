@@ -21,7 +21,7 @@ namespace Ocelot.UnitTests.Requester
 {
     public class HttpClientHttpRequesterTest
     {
-        private readonly Mock<IHttpClientCache> _cacheHandlers;
+        private readonly Mock<IHttpClientFactory> _httpClientFactory;
         private readonly Mock<IDelegatingHandlerHandlerFactory> _factory;
         private Response<HttpResponseMessage> _response;
         private readonly HttpClientHttpRequester _httpClientRequester;
@@ -40,11 +40,11 @@ namespace Ocelot.UnitTests.Requester
             _loggerFactory
                 .Setup(x => x.CreateLogger<HttpClientHttpRequester>())
                 .Returns(_logger.Object);
-            _cacheHandlers = new Mock<IHttpClientCache>();
+            _httpClientFactory = new Mock<IHttpClientFactory>();
             _mapper = new Mock<IExceptionToErrorMapper>();
             _httpClientRequester = new HttpClientHttpRequester(
                 _loggerFactory.Object,
-                _cacheHandlers.Object,
+                _httpClientFactory.Object,
                 _factory.Object,
                 _mapper.Object);
         }

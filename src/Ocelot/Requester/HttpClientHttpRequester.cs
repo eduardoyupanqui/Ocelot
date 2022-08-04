@@ -12,25 +12,25 @@ namespace Ocelot.Requester
 
     public class HttpClientHttpRequester : IHttpRequester
     {
-        private readonly IHttpClientCache _cacheHandlers;
+        private readonly IHttpClientFactory _clientFactory;
         private readonly IOcelotLogger _logger;
         private readonly IDelegatingHandlerHandlerFactory _factory;
         private readonly IExceptionToErrorMapper _mapper;
 
         public HttpClientHttpRequester(IOcelotLoggerFactory loggerFactory,
-            IHttpClientCache cacheHandlers,
+            IHttpClientFactory clientFactory,
             IDelegatingHandlerHandlerFactory factory,
             IExceptionToErrorMapper mapper)
         {
             _logger = loggerFactory.CreateLogger<HttpClientHttpRequester>();
-            _cacheHandlers = cacheHandlers;
+            _clientFactory = clientFactory;
             _factory = factory;
             _mapper = mapper;
         }
 
         public async Task<Response<HttpResponseMessage>> GetResponse(HttpContext httpContext)
         {
-            var builder = new HttpClientBuilder(_factory, _cacheHandlers, _logger);
+            var builder = new HttpClientBuilder(_factory, _clientFactory, _logger);
 
             var downstreamRoute = httpContext.Items.DownstreamRoute();
 
@@ -47,10 +47,6 @@ namespace Ocelot.Requester
             {
                 var error = _mapper.Map(exception);
                 return new ErrorResponse<HttpResponseMessage>(error);
-            }
-            finally
-            {
-                builder.Save();
             }
         }
     }
